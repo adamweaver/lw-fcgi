@@ -1,0 +1,10 @@
+(require "comm")
+
+(define-lw-system :fcgi ()
+  (:system "lw-mime")
+  (:system "lw-date")
+  (:system "lw-json")
+  (:system "lw-string")
+  (:file "fcgi" :depends-on "package")
+  (:file "fetch" :depends-on "package")
+  (:file "package"))
