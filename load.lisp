@@ -1,6 +1,6 @@
 (require "comm")
 
-(define-lw-system :fcgi ()
+(define-lw-system lw-fcgi ()
   (:system "lw-mime")
   (:system "lw-date")
   (:system "lw-json")
