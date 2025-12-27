@@ -1,8 +1,29 @@
 (defpackage :fcgi
   (:use :cl :utils)
   (:export
-   "URI" "MAKE-URI" "START-FCGI" "STOP-FCGI" "ADD-TO-ROUTE-TREE" "FIND-FUNCTION-BY-ROUTE" "SET-COOKIE" "UNSET-COOKIE"
-   "REQUEST-HEADER" "REQUEST-USER" "RESPONSE-HEADER" "RESPONSE-CODE" "SERVE-FILE"))
+   "ADD-TO-ROUTE-TREE"
+   "FIND-FUNCTION-BY-ROUTE"
+   "MAKE-URI"
+   "PARSE-URI"
+   "REQUEST-HEADER"
+   "REQUEST-USER"
+   "RESPONSE-CODE"
+   "RESPONSE-HEADER"
+   "SERVE-FILE"
+   "SET-COOKIE"
+   "START-FCGI"
+   "STOP-FCGI"
+   "UNSET-COOKIE"
+   "URI"
+   "URI-DOMAIN"
+   "URI-P"
+   "URI-PASS"
+   "URI-PATH"
+   "URI-PORT"
+   "URI-QUERY"
+   "URI-SCHEME"
+   "URI-USER"))
+
 
 (defpackage :fetch
   (:use :cl :utils)
