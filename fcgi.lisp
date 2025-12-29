@@ -6,9 +6,6 @@
 (defstruct rq
   connection method uri body headers-in (code nil) user headers-out)
 
-(defvar *fetches* nil)
-(defvar *gets* (make-route :name "*"))
-(defvar *posts* (make-route :name "*"))
 (defvar *request* nil)
 
 ;;; ============================================================================

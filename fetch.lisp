@@ -1,6 +1,6 @@
 (in-package :fetch)
 
-(defvar *fetches*)
+(defvar *fetches* nil)
 
 (define-condition http-request-error (error)
   ((message :initarg :message :reader message))

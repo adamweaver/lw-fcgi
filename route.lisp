@@ -1,10 +1,13 @@
 (in-package :fcgi)
 
 (defstruct route
-  name uri bareword subs string integer splat func)
+  uri bareword subs string integer splat funcs)
 
 (defstruct uri
   scheme user pass domain path port query)
+
+(defvar +methods+ #("GET" "POST" "PUT" "PATCH" "DELETE" "OPTIONS"))
+(defvar *routes* (make-route :funcs (make-array 6 :initial-element nil)))
 
 (defun split-string (by string)
   "Split STRING into a list delimited by character BY"
@@ -14,7 +17,7 @@
           collect (subseq string i j)
         while j))
 
-(defun add-to-route-tree (name uri method func)
+(defun add-to-route-tree (uri method func)
   (loop with route = (if (eq method :post) *posts* *gets*)
         for part in (split-string #\/ uri)
         do (cond ((string= part "") (loop-finish))
@@ -23,30 +26,31 @@
                  ((char= (char part 0) #\*) (setf route (or (route-splat route) (setf (route-splat route) (make-route)))))
                  (t (setf route (or (find part (route-subs route) :test #'string-equal :key #'route-bareword)
                                     (car (setf (route-subs route) (cons (make-route :bareword part) (route-subs route))))))))
-        finally (setf (route-name route) name (route-func route) func)))
+        finally (setf (route-func route) (if (arrayp (route-func route)) (route-func route) (make-array 6 :initial-element nil)) 
+                      (aref (route-func route) method) func)))
 
 (defun find-function-by-route (route method)
   "Find the (function . list-of-arguments) represented by string ROUTE for method METHOD"
-  (find-function-in-tree (split-string #\/ (mime:decode-percentage-hex route)) (if (eq method :post) *posts* *gets*) nil))
+  (find-function-in-tree (split-string #\/ (mime:decode-percentage-hex route)) *routes* nil (or (position method +methods+ :test #'string-equal) 0)))
 
-(defun find-function-in-tree (parts tree args)
+(defun find-function-in-tree (parts tree args idx)
   (lw:if-let (part (car parts))
              ;;     First try barewords
              (or (lw:when-let (bare (find part (route-subs tree) :test #'string-equal :key #'route-bareword))
-                   (find-function-in-tree (cdr parts) bare args))
+                   (find-function-in-tree (cdr parts) bare args idx))
                  ;; Then try string vars
                  (lw:when-let (string (route-string tree))
-                   (find-function-in-tree (cdr parts) string (cons part args)))
+                   (find-function-in-tree (cdr parts) string (cons part args) idx))
                  ;; Then try integer vars
                  (lw:when-let (pnum (ignore-errors (parse-integer part)))
                    (lw:when-let (int (route-integer tree))
-                     (find-function-in-tree (cdr parts) int (cons pnum args))))
+                     (find-function-in-tree (cdr parts) int (cons pnum args) idx)))
                  ;; Then try splats, greediest match downwards
                  (lw:when-let (splat (route-splat tree))
-                   (loop for i from (length parts) downto 0 thereis (find-function-in-tree (last parts i) splat (cons (butlast parts i) args)))))
+                   (loop for i from (length parts) downto 0 thereis (find-function-in-tree (last parts i) splat (cons (butlast parts i) args) idx))))
              ;;     We've reached the end, so see if there's a func here or in a child splat
-             (lw:when-let (func (or (route-func tree) (and (route-splat tree) (route-func (route-splat tree)))))
-               (cons func (nreverse (if (route-func tree) args (cons nil args)))))))
+             (lw:when-let (funcs (or (route-funcs tree) (and (route-splat tree) (route-funcs (route-splat tree)))))
+               (cons (aref funcs idx) (nreverse (if (route-funcs tree) args (cons nil args)))))))
 
 (defun parse-uri (string)
   (destructuring-bind (&optional ign1 scheme userinfo user ign3 pass domain ign4 port path ign5 query ign6)
@@ -82,7 +86,7 @@
 
     (make-rq :uri (parse-uri uri) 
              :headers-in headers
-             :method (if (string-equal method "POST") :post :get)
+             :method method
              :body (maybe-make-alist (mime:decode-body body headers))
              :user (gethash (mime:subheader :cookie :riskmate headers) (server-sessions *fcgi*)))))
 
