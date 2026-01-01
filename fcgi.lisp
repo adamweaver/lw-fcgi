@@ -4,7 +4,7 @@
   acceptor sessions)
 
 (defstruct rq
-  connection method uri body headers-in (code nil) user headers-out)
+  connection method uri body headers-in (code nil) headers-out)
 
 (defvar *request* nil)
 
@@ -106,7 +106,8 @@
 
 (defun start-fcgi (port)
   "Start up a new thread to serve requests listening on PORT"
-  (setf *fcgi* (make-server :acceptor (comm:start-up-server :process-name "FCGI Acceptor" :function #'accept-fcgi-request :service port) :sessions (make-hash-table :test #'equalp))))
+  (setf *fcgi* (make-server :acceptor (comm:start-up-server :process-name "FCGI Acceptor" :function #'accept-fcgi-request :service port) 
+                            :sessions (make-hash-table :test #'equalp))))
 
 (defun stop-fcgi ()
   "Kill the FCGI process"

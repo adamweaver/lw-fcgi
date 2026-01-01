@@ -18,7 +18,7 @@
         while j))
 
 (defun add-to-route-tree (uri method func)
-  (loop with route = (if (eq method :post) *posts* *gets*)
+  (loop with route = *routes*
         for part in (split-string #\/ uri)
         do (cond ((string= part "") (loop-finish))
                  ((char= (char part 0) #\:) (setf route (or (route-integer route) (setf (route-integer route) (make-route)))))
@@ -26,8 +26,8 @@
                  ((char= (char part 0) #\*) (setf route (or (route-splat route) (setf (route-splat route) (make-route)))))
                  (t (setf route (or (find part (route-subs route) :test #'string-equal :key #'route-bareword)
                                     (car (setf (route-subs route) (cons (make-route :bareword part) (route-subs route))))))))
-        finally (setf (route-func route) (if (arrayp (route-func route)) (route-func route) (make-array 6 :initial-element nil)) 
-                      (aref (route-func route) method) func)))
+        finally (setf (route-funcs route) (if (arrayp (route-funcs route)) (route-funcs route) (make-array 6 :initial-element nil)) 
+                      (aref (route-funcs route) (or (position method +methods+ :test #'string-equal) 0)) func)))
 
 (defun find-function-by-route (route method)
   "Find the (function . list-of-arguments) represented by string ROUTE for method METHOD"
@@ -76,7 +76,9 @@
                    ((consp element) 
                     (update-alist (car element) (cdr element) alist))
                    ((mime:mime-p element) 
-                    (update-alist (mime:subheader :content-disposition :name element) (cons (mime:subheader :content-dispotion :filename element) (mime:mime-body element)) alist))
+                    (update-alist (mime:subheader :content-disposition :name element)
+                                  (cons (mime:subheader :content-dispotion :filename element)
+                                        (mime:mime-body element)) alist))
                    (t (error "Unexpected BODY type ~S" (type-of element)))))
 
            (maybe-make-alist (body)
@@ -84,19 +86,19 @@
                  (reduce #'make-alist body :initial-value  nil)
                  body)))
 
-    (make-rq :uri (parse-uri uri) 
-             :headers-in headers
-             :method method
-             :body (maybe-make-alist (mime:decode-body body headers))
-             :user (gethash (mime:subheader :cookie :riskmate headers) (server-sessions *fcgi*)))))
+    (make-rq :uri (parse-uri uri) :headers-in headers :method method :body (maybe-make-alist (mime:decode-body body headers)))))
 
-(defun set-cookie (user)
-  (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
-    (setf (response-header :set-cookie) (format nil "riskmate=~A; Secure; SameSite=Lax; Path=/" cookie)
-          (gethash cookie (server-sessions *fcgi*)) user)))
+(defun session (key)
+  (lw:when-let (cookie (mime:subheader :cookie key (rq-headers-in *request*)))
+    (gethash cookie (server-sessions *fcgi*))))
 
-(defun unset-cookie ()
-  (setf (response-header :set-cookie) (format nil "riskmate=z; Expires=~A" (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+)))
+(defun (setf session) (value key)
+  (if value
+      (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
+        (setf (response-header :set-cookie) (format nil "~A=~A; Secure; SameSite=Lax; Path=/" key cookie)
+              (gethash cookie (server-sessions *fcgi*)) value))
+      (setf (response-header :set-cookie) (format nil "~A=z; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+)))
+  value)
 
 (defun (setf request-code) (code)
   (setf (rq-code *request*) code))
@@ -104,9 +106,6 @@
 (defun request-header (header)
   "Get the value of HEADER in request REQUEST"
   (mime:header header (rq-headers-in *request*)))
-
-(defun request-user ()
-  (rq-user *request*))
 
 (defun response-header (header)
   "Get the value of HEADER in response REQUEST"
