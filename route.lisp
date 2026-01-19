@@ -97,7 +97,7 @@
       (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
         (setf (response-header :set-cookie) (format nil "~A=~A; Secure; SameSite=Lax; Path=/" key cookie)
               (gethash cookie (server-sessions *fcgi*)) value))
-      (setf (response-header :set-cookie) (format nil "~A=z; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+)))
+      (setf (response-header :set-cookie) (format nil "~A= ; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+)))
   value)
 
 (defun (setf request-code) (code)
