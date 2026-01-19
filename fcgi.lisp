@@ -127,20 +127,21 @@
   (process-fcgi-connection (make-instance 'comm:socket-stream :socket handle :direction :io :element-type '(unsigned-byte 8))))
 
 (defun process-fcgi-connection (connection)
-  (loop
-    (multiple-value-bind (type id buffer) (read-fcgi-record connection)
-      (handler-bind ((fcgi-close-handle (lambda (c) (declare (ignore c)) (ignore-errors (close connection) (return-from process-fcgi-connection))))
-                     (error (lambda (c) (output-fcgi-response nil id connection (princ-to-string c) "text/plain" 503))))
-        (declare (type fixnum type id) (type (array (unsigned-byte 8)) buffer))
-        (case* #'eql type
-          (+fcgi-begin-request+ (fcgi-begin-request id buffer))
-          (+fcgi-abort-request+ (fcgi-abort-request connection id))
-          (+fcgi-end-request+ (fcgi-end-request connection id 0 0))
-          (+fcgi-params+ (fcgi-params id buffer))
-          (+fcgi-stdin+ (fcgi-stdin connection id buffer))
-          (+fcgi-data+ (fcgi-data connection id buffer))
-          (+fcgi-get-values+ (fcgi-get-values connection id buffer))
-          (t (error "Unknown FCGI type ~S" type)))))))
+  (handler-bind ((error (lambda (c) (declare (ignore c)) (ignore-errors (close connection) (return-from process-fcgi-connection))))
+                 (fcgi-close-handle (lambda (c) (declare (ignore c)) (ignore-errors (close connection) (return-from process-fcgi-connection)))))
+    (loop
+      (multiple-value-bind (type id buffer) (read-fcgi-record connection)
+        (handler-bind ((error (lambda (c) (output-fcgi-response nil id connection (princ-to-string c) "text/plain" 503))))
+          (declare (type fixnum type id) (type (array (unsigned-byte 8)) buffer))
+          (case* #'eql type
+            (+fcgi-begin-request+ (fcgi-begin-request id buffer))
+            (+fcgi-abort-request+ (fcgi-abort-request connection id))
+            (+fcgi-end-request+ (fcgi-end-request connection id 0 0))
+            (+fcgi-params+ (fcgi-params id buffer))
+            (+fcgi-stdin+ (fcgi-stdin connection id buffer))
+            (+fcgi-data+ (fcgi-data connection id buffer))
+            (+fcgi-get-values+ (fcgi-get-values connection id buffer))
+            (t (error "Unknown FCGI type ~S" type))))))))
 
 (defun fcgi-begin-request (id buffer)
   (declare (type fixnum id) (type (array (unsigned-byte 8)) buffer))
