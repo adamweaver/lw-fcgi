@@ -36,7 +36,10 @@
   (let ((val (aref buffer offset)))
     (if (< val 128)
         val
-        (+ (ash (logand val 127) 24) (ash (aref buffer (1+ offset)) 16) (ash (aref buffer (+ offset 2)) 8) (aref buffer (+ offset 3))))))
+        (+ (ash (logand val 127) 24)
+           (ash (aref buffer (1+ offset)) 16)
+           (ash (aref buffer (+ offset 2)) 8)
+           (aref buffer (+ offset 3))))))
 
 (defun get-name-value-pair (c-buffer offset)
   "Get the string NAME and string VALUE"
@@ -59,7 +62,10 @@
   (when (plusp (length buffer))
     (loop with len = (length buffer)
           for (name value end) = (get-name-value-pair buffer 0) then (get-name-value-pair buffer end)
-          nconc (mime:make-header* (nsubstitute #\- #\_ (if (starts-with name "http_" :test #'string-equal) (nsubseq name 5) name) :test #'char=) value)
+          nconc (mime:make-header* (nsubstitute #\- #\_ (if (starts-with name "http_" :test #'string-equal)
+                                                            (nsubseq name 5)
+                                                            name)
+                                                :test #'char=) value)
           unless (< end len) do (loop-finish))))
 
 (defun read-fcgi-record (connection)
@@ -106,7 +112,7 @@
 
 (defun start-fcgi (port)
   "Start up a new thread to serve requests listening on PORT"
-  (setf *fcgi* (make-server :acceptor (comm:start-up-server :process-name "FCGI Acceptor" :function #'accept-fcgi-request :service port) 
+  (setf *fcgi* (make-server :acceptor (comm:start-up-server :process-name "FCGI" :function #'accept-fcgi-request :service port) 
                             :sessions (make-hash-table :test #'equalp))))
 
 (defun stop-fcgi ()
@@ -124,11 +130,16 @@
   (aref *fcgi-requests* id))
 
 (defun accept-fcgi-request (handle)
-  (process-fcgi-connection (make-instance 'comm:socket-stream :socket handle :direction :io :element-type '(unsigned-byte 8))))
+  (handler-bind ((error (lambda (c) (declare (ignore c)) (return-from accept-fcgi-request))))
+    (process-fcgi-connection (make-instance 'comm:socket-stream :socket handle :direction :io :element-type '(unsigned-byte 8)))))
 
 (defun process-fcgi-connection (connection)
-  (handler-bind ((error (lambda (c) (declare (ignore c)) (ignore-errors (close connection) (return-from process-fcgi-connection))))
-                 (fcgi-close-handle (lambda (c) (declare (ignore c)) (ignore-errors (close connection) (return-from process-fcgi-connection)))))
+  (handler-bind ((error (lambda (c)
+                          (declare (ignore c))
+                          (ignore-errors (close connection) (return-from process-fcgi-connection))))
+                 (fcgi-close-handle (lambda (c)
+                                      (declare (ignore c))
+                                      (ignore-errors (close connection) (return-from process-fcgi-connection)))))
     (loop
       (multiple-value-bind (type id buffer) (read-fcgi-record connection)
         (handler-bind ((error (lambda (c) (output-fcgi-response nil id connection (princ-to-string c) "text/plain" 503))))
@@ -205,10 +216,10 @@
 (defun fcgi-abort-request (connection id)
   (fcgi-end-request connection id 0 0))
 
-(defun fcgi-end-request (connection id app-status protocol-status)
+(defun fcgi-end-request (connection id app protocol)
   (let ((closep (fcgi-request-close (aref *fcgi-requests* id))))
     (setf (aref *fcgi-requests* id) nil)
-    (let ((buffer (make-array 8 :element-type '(unsigned-byte 8) :initial-contents (list 0 0 0 app-status protocol-status 0 0 0))))
+    (let ((buffer (make-array 8 :element-type '(unsigned-byte 8) :initial-contents (list 0 0 0 app protocol 0 0 0))))
       (output-fcgi-record connection +fcgi-end-request+ id buffer))
     (when closep
       (signal 'fcgi-close-handle))))
