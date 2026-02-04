@@ -88,16 +88,21 @@
 
     (make-rq :uri (parse-uri uri) :headers-in headers :method method :body (maybe-make-alist (mime:decode-body body headers)))))
 
+(defun cookie (key)
+  (mime:subheader :cookie key (rq-headers-in *request*)))
+
 (defun session (key)
-  (lw:when-let (cookie (mime:subheader :cookie key (rq-headers-in *request*)))
-    (gethash cookie (server-sessions *fcgi*))))
+  (gethash (cookie key) (server-sessions *fcgi*)))
 
 (defun (setf session) (value key)
   (if value
       (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
         (setf (response-header :set-cookie) (format nil "~A=~A; Secure; SameSite=Lax; Path=/" key cookie)
               (gethash cookie (server-sessions *fcgi*)) value))
-      (setf (response-header :set-cookie) (format nil "~A= ; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+)))
+      (let ((cookie (cookie key)))
+        (setf (response-header :set-cookie) (format nil "~A= ; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+))
+        (remhash cookie (server-sessions *fcgi*))
+        (list (server-sessions *fcgi*))))
   value)
 
 (defun (setf request-code) (code)
