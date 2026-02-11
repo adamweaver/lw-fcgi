@@ -112,8 +112,9 @@
 
 (defun start-fcgi (port)
   "Start up a new thread to serve requests listening on PORT"
-  (setf *fcgi* (make-server :acceptor (comm:start-up-server :process-name "FCGI" :function #'accept-fcgi-request :service port) 
-                            :sessions (make-hash-table :test #'equalp))))
+  (setf *fcgi*
+        (make-server :acceptor (comm:start-up-server :process-name "FCGI" :function #'accept-fcgi-request :service port :reuseport t) 
+                     :sessions (make-hash-table :test #'equalp))))
 
 (defun stop-fcgi ()
   "Kill the FCGI process"
