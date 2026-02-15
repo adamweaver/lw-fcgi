@@ -3,6 +3,7 @@
   (:export
    "ADD-SESSION"
    "ADD-TO-ROUTE-TREE"
+   "COOKIE"
    "FIND-FUNCTION-BY-ROUTE"
    "MAKE-URI"
    "PARSE-URI"
