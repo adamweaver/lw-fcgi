@@ -1,6 +1,7 @@
 (defpackage :fcgi
   (:use :cl :utils)
   (:export
+   "ADD-SESSION"
    "ADD-TO-ROUTE-TREE"
    "FIND-FUNCTION-BY-ROUTE"
    "MAKE-URI"

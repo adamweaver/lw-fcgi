@@ -94,6 +94,9 @@
 (defun session (key)
   (gethash (cookie key) (server-sessions *fcgi*)))
 
+(defun add-session (cookie value)
+  (setf (gethash cookie (server-sessions *fcgi*)) value))
+
 (defun (setf session) (value key)
   (if value
       (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
