@@ -98,15 +98,18 @@
   (setf (gethash cookie (server-sessions *fcgi*)) value))
 
 (defun (setf session) (value key)
+  "If VALUE is set, Add a new SET-COOKIE cookie to our response, and create a session matching our new cookie with VALUE.
+Otherwise if VALUE is null, remove the cookie from our sessions list.
+Returns the [old] cookie string."
   (if value
       (let ((cookie (loop for try = (random-alpha-ascii-string 12) thereis (and (null (gethash try (server-sessions *fcgi*))) try))))
         (setf (response-header :set-cookie) (format nil "~A=~A; Secure; SameSite=Lax; Path=/" key cookie)
-              (gethash cookie (server-sessions *fcgi*)) value))
+              (gethash cookie (server-sessions *fcgi*)) value)
+        cookie)
       (let ((cookie (cookie key)))
         (setf (response-header :set-cookie) (format nil "~A= ; Expires=~A" key (date:format-date (date:date+ (date:now) :hour -1)) date:+rfc2822+))
         (remhash cookie (server-sessions *fcgi*))
-        (list (server-sessions *fcgi*))))
-  value)
+        cookie)))
 
 (defun (setf request-code) (code)
   (setf (rq-code *request*) code))
